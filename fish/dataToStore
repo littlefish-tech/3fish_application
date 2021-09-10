@@ -1,0 +1,278 @@
+after the user login
+1. remember how many rows and columns user select as the layout for the page
+2. for each component, we keep the key s(ri: ci) => the location of each component
+    the name/value that paired with the key
+
+eventlist Component=> will need to query all user's eventlist
+eventInput Component=> no need to store anything
+weather => the last user searched location
+poerty => no need to remember anything
+worldclock =>  timezone, analog/digital
+
+### ### ### ### ### ### ### ### ### ### ### ###
+
+
+Goals
+=====
+
+ 0. Find all the data to store to be able to restore session/screen
+
+ 1. Minimal changes to code
+
+ 2. Don't waste storage
+
+------
+
+Session = { Layout, Creds, AppData }
+
+Creds = { uName }
+
+Layout =  { name,   [Grids] }
+ # name is the name of the layout
+ # layouts are hardcoded for now
+
+
+Grid  =   {  #row, #columns,  gridContent }
+
+gridContent =  {  [key of type row:col]  ->  ComponentName }  
+
+
+ComponentData =  { component-key, component specific hash }
+
+-----
+
+Layout = ThinRightGridLayout
++---------------------+-------+
+|                     |       |
+|                     |       |
+|                     |       |
+|                     |       |
+|                     |       |
+|                     |       |
++---------------------+-------+
+
+Example 0
+
+curUser = yvonne
+
++---------------------+-------+
+|                     |       |
+|  weather            | weatr |
+|  95132              | 20910 |
+|                     |       |
+|                     |       |
+|            0        |   1   |
++---------------------+-------+
+
+
+Session = { Layout, Creds }
+
+Creds = "yvony"
+
+Layout =  { "thinrightgrid",   Grid[0], Grid[1] }
+
+
+Grid[0]  =   { numRows = 1, numColumns = 1,  gridContent0 }
+
+gridContent0 =  {  "0:0"  ->  Weather }  
+
+
+Grid[1]  =   { numRows = 1, numColumns = 1,  gridContent1 }
+
+gridContent1 =  {  "0:0"  ->  Weather }  
+
+=== ==== ==== ==== ==== ==== ==== ==== ==== ==== ==== ==== ==== ==== ==== ====
+
+
+
+Example 1
+
+curUser = yvonne
+
++---------------------+-------+
+|                     |       |
+|  weather            | weatr |
+|  95132              | 20910 |
++---------------------+       |
+|  poem      0        |   1   |
++---------------------+-------+
+
+
+Session = { Layout, Creds }
+
+Creds = "yvony"
+
+Layout =  { "thinrightgrid",   Grid[0], Grid[1] }
+
+# if the user changes layout,
+# update the Layout.name
+# create new grids as required.
+
+
+Grid[0]  =   { numRows = 2, numColumns = 1,  gridContent0 }
+
+gridContent0 =  {  "0:0"  ->  Weather,
+                   "1:0:  ->  Poem }  
+
+
+Grid[1]  =   { numRows = 1, numColumns = 1,  gridContent1 }
+
+gridContent1 =  {  "0:0"  ->  Weather }  
+
+## when to store?
+## if the user changes #rows or #colums
+## save it
+
+## if the user chooses a new component
+## save it 
+
+
+---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+
+Session = Hash of type Session
+Session.Layout = Layout Hash
+Session.Creds = Creds Hash
+
+Creds = Hash of type Cred
+Creds.uName = user name
+
+Layout = Hash of type Layout
+Layout.name =  layout name
+Layout.Grids = Array of Grids
+
+Grid = Hash of type Grid
+Grid.numRows = #rows
+Grid.numCols = #cols
+Grid.gridContent = Hash of type gridContent
+
+gridContent has keys of type  string 
+ in "row:col" format and value of type string that
+ identifies the Component
+
+---> for each user, we can store a session in a mongodb collection
+
+---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+
+We have a global Session object that can be updated 
+by Layout or FlexGrid
+
+We can have a saveSession call, that saves the session
+to bS/mongo
+
+Upon login, we can go get the session from bS and set
+the global session object
+
+--suppose the layout has two grids
+  left  and right 
+
+-- user adds a row to the left grid
+
+-- what we do?
+
+-- user changes a component in the right grid
+
+-- what we do??
+
+--- suppose the user just logs in.. or we refresh 
+    the page..
+
+upon login: 
+  fetch user's session
+  and set the global session object
+
+when the grid is rendered what should we do?
+
+  --  we should find the Grid object for THIS grid
+      in the global session.layout
+
+  --  if we find something, we should set 
+       #rows, #cols and gridContent based on what we found
+
+
+--- whenever the grid changes (ether #r/#c or gC)
+     update the global session object
+     make bS call to save session object in mongodb
+     write it to localStorage so that if the user refreshes then we 
+      can get it back
+
+# global session object 
+#    lives in 3f app memory in js  <-- goes away when user refreshes page
+#    stored in local store to restore when user refreshes  <--- lives through refresh
+#    stored in bS/mongo for restore after login or   different browser
+
+---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- 
+
+Example 2
+
++---------------------+-------+
+|                     |       |
+|  weather            | weatr |
+|  95132              | 20910 |
++---------------------+       |
+|  poem      0        |   1   |
++---------------------+-------+
+
+
+G:r:c format
+0:0:0  -> weather
+0:1:0  -> poem 
+
+1:0:0  -> weather
+
+
+weather in 0:0:0 wants to store a hash
+poem    in 0:1:0 wants to store a hash 
+weather in 1:0:0 wants to store a hash
+
+how should we store it and where?
+
+
+=== === === === === === === === === === === 
+
+Session = { Layout, Creds, AppData }
+
+
+AppData is a Hash
+
+ key is G:r:c
+ value is appHash
+  
+appHash 
+  name = component name
+  data = whatever the component wants to save
+
+
+=== === === === === === === === === === === 
+
+
+GS <- global session object
+
+
+## layout
+
+getLayout() -> S.Layout
+setLayout(Layout) # set the S.Layout
+
+## grid
+getGrid(gridId) -> S.Layout.Grids[gridId]
+setGrid(gridID, gridObject)  # set S.Layout.Grids[gridId] = gridObject
+
+## component
+getAppData(gridId, row, col)  ->  S.AppData[gridId:row:col] (of type appHash)
+setAppData(gridId, row, col, aData) # S.AppData[gridId:row:col] = aData
+
+#### #### #### #### #### #### #### #### #### 
+
+
+## whenever set<Layout/Grid/AppData> is called, S is updated
+##  write S to bS/mongo
+##  write S to localStore
+
+## when user logs in 
+##   get S from bS/mongo
+##   write S to localStore
+
+## when user logs out
+##   delete S from localStore
+
+

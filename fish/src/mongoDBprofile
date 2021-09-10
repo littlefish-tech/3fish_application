@@ -1,0 +1,16 @@
+design the mongodb backend for storing profiles.
+but saving this is easy
+  just what is the collection, what is the  key and what is the data..
+
+
+the collection should save a user frofile preference
+
+4 things needs to be save for user profile preference: 
+    - Layout
+    - Creds
+    - Grids
+    - AppData
+
+the format should be a hash to save in the mongodb
+the key is the user's user name
+the value is also a hash, with key layout, creds, grids, and appdata
